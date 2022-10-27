@@ -1,0 +1,5 @@
+node_modules
+lightproof-data
+merged-blocks
+.DS_Store
+.env
