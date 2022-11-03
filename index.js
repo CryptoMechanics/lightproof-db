@@ -8,7 +8,7 @@ const DB = getDB(); //initalize databases
 async function main(){
   console.log(await getRange());
   await startApi();
-  await streamFirehose(process.env.forceStartBlock);  
+  await streamFirehose(process.env.FORCE_START_BLOCK);  
   console.log("READY")
 }
 

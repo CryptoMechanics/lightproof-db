@@ -20,9 +20,9 @@ npm install
 - edit the `.env` file variables
 ```
 PORT=8285                     #host port to use for http (consumed by ibc-proof-server)
-grpcAddress=localhost:9000    #GRPC address of firehose service (ideally on local network/machine)
-grpcInsecure=true             #set to true if connecting to insecure GRPC service vs TLS
-forceStartBlock=BLOCK_NUMBER  #force indexing to start from a certain block 
+GRPC_ADDRESS=localhost:9000    #GRPC address of firehose service (ideally on local network/machine)
+GRPC_INSECURE=true             #set to true if connecting to insecure GRPC service vs TLS
+FORCE_START_BLOCK=BLOCK_NUMBER  #force indexing to start from a certain block 
 ```
 
 

@@ -1,6 +1,5 @@
-
-const { SerialBuffer, createInitialTypes } = require("eosjs/dist/eosjs-serialize");
-const types = createInitialTypes();
+const { Serialize } = require("enf-eosjs")
+const types = Serialize.createInitialTypes();
 const { open, asBinary } = require('lmdb');
 
 const varuint32 = types.get("varuint32");
@@ -21,7 +20,7 @@ const getDB = () => {
 }
 
 function deserialize(array){
-  const buffer = new SerialBuffer({ TextEncoder, TextDecoder, array });
+  const buffer = new Serialize.SerialBuffer({ TextEncoder, TextDecoder, array });
   var id = Buffer.from(buffer.getUint8Array(32)).toString("hex");
   var count = buffer.getVaruint32();
   var nodes = [];
@@ -35,7 +34,7 @@ function deserialize(array){
   
 function serialize(id, nodes){
   var mappedNodes = map(nodes);
-  const buffer = new SerialBuffer({ TextEncoder, TextDecoder });
+  const buffer = new Serialize.SerialBuffer({ TextEncoder, TextDecoder });
   checksum256.serialize(buffer, id);
   varuint32.serialize(buffer, mappedNodes.length);
   for (var node of mappedNodes) uint32.serialize(buffer, node);
