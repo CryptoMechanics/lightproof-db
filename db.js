@@ -7,7 +7,7 @@ const uint32 = types.get("uint32");
 const checksum256 = types.get("checksum256"); 
 
 let rootDB,blocksDB, hashesDB, hashIndexDB, statusDB;
-let dbPath = process.env.dbPath || 'lightproof-data'
+let dbPath = process.env.DB_PATH || 'lightproof-data'
 const getDB = () => {
   if(!rootDB) {
     rootDB = open({ path: dbPath, compression: true });

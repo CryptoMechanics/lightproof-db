@@ -22,7 +22,7 @@ npm install
 PORT=8285                     #host port to use for http (consumed by ibc-proof-server)
 GRPC_ADDRESS=localhost:9000    #GRPC address of firehose service (ideally on local network/machine)
 GRPC_INSECURE=true             #set to true if connecting to insecure GRPC service vs TLS
-FORCE_START_BLOCK=BLOCK_NUMBER  #force indexing to start from a certain block 
+FORCE_START_BLOCK=BLOCK_NUMBER  #force indexing to start from a certain block
 ```
 
 
