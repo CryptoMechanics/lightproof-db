@@ -20,5 +20,11 @@
   },
   "devDependencies": {
     "pkg": "^5.8.0"
+  },
+  "pkg": {
+    "assets": [
+      "node_modules/lmdb",
+      "proto/**/*.proto"
+    ]
   }
 }
