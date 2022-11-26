@@ -67,7 +67,8 @@ const getRange = async () =>{
   for (let key of await blocksDB.getKeys({ limit:1 })) firstBlock = key;
   for (let key of await blocksDB.getKeys({ limit:1, reverse:1})) lastBlock = key;
   const lib = await statusDB.get("lib");
-  return {firstBlock, lastBlock, lib}
+  const lastBlockTimestamp = await statusDB.get("lastBlockTimestamp");
+  return {firstBlock, lastBlock, lib, lastBlockTimestamp}
 }
 
 module.exports = {

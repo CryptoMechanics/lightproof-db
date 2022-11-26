@@ -70,6 +70,11 @@ const streamFirehose = forceStartBlock => new Promise( async (resolve, reject)=>
         lib = block.number;
         statusDB.put("lib", block.number);
       }
+      else { //if STEP_NEW
+        let date = (new Date(parseInt(block.header.timestamp.seconds)*1000)).toISOString().replace('Z', '');
+        if (block.header.timestamp.nanos) date = date.replace('000', '500')
+        statusDB.put("lastBlockTimestamp", date); 
+      }
       const blockMerkle = block.blockrootMerkle;
       blockMerkle.activeNodes.forEach((node,index) => blockMerkle.activeNodes[index] = toHex(node) );
       var buffer = serialize(block.id, blockMerkle.activeNodes);
