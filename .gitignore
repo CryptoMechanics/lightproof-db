@@ -3,3 +3,7 @@ lightproof-data
 merged-blocks
 .DS_Store
 .env
+
+*-linux
+*-macos
+*-win.exe
