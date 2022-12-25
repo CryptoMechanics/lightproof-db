@@ -6,16 +6,18 @@ const loadGrpcPackageDefinition = package => grpc.loadPackageDefinition(protoLoa
 }));
 const ProtoBuf = require("protobufjs");
 const grpc = require("@grpc/grpc-js");
-const eosioProto = loadProto("dfuse/eosio/codec/v1/codec.proto")
-const bstreamService = loadGrpcPackageDefinition("dfuse/bstream/v1/bstream.proto").dfuse.bstream.v1;
-const eosioBlockMsg = eosioProto.root.lookupType("dfuse.eosio.codec.v1.Block");
+const eosioProto = loadProto("sf/antelope/type/v1/type.proto")
+const firehoseV1Service = loadGrpcPackageDefinition("dfuse/bstream/v1/bstream.proto").dfuse.bstream.v1;
+const firehoseV2Service = loadGrpcPackageDefinition("sf/firehose/v2/firehose.proto").sf.firehose.v2;
+const firehoseStream = (process.env.FIREHOSE_SERVICE || "").toLocaleLowerCase() == "v2" ? firehoseV2Service.Stream : firehoseV1Service.BlockStreamV2;
+const eosioBlockMsg = eosioProto.root.lookupType("sf.antelope.type.v1.Block");
 const sleep = s => new Promise(resolve=>setTimeout(resolve,s*1000));
 const {getDB, getRange, serialize} = require("./db");
 const { asBinary } = require('lmdb');
 const grpcAddress = process.env.GRPC_ADDRESS;
 console.log("grpcAddress",grpcAddress);
 
-const getClient = () => new bstreamService.BlockStreamV2(
+const getClient = () => new firehoseStream(
   grpcAddress,
   process.env.GRPC_INSECURE=='true' ? grpc.credentials.createInsecure(): grpc.credentials.createSsl(),{
     "grpc.max_receive_message_length": 1024 * 1024 * 100,
