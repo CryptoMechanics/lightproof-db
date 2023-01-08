@@ -19,6 +19,23 @@ const getDB = () => {
   return { rootDB, blocksDB, hashesDB, hashIndexDB, statusDB }
 }
 
+const getStartBlock = async () => {
+
+  let { lib: startBlock } = await getRange(); 
+    
+  console.log("Lib is at " + startBlock);
+
+  //set startBlock to ENV FORCE_START_BLOCK
+  const forceStartBlock = process.env.FORCE_START_BLOCK;
+  if (forceStartBlock) {
+    console.log("DB forced to start from "+ forceStartBlock);
+    startBlock = forceStartBlock
+  }
+  // start at block 1, if lib is undefined and forceStartBlock is not provided
+  if (!startBlock) startBlock=1;
+  return startBlock
+}
+
 function deserialize(array){
   const buffer = new Serialize.SerialBuffer({ TextEncoder, TextDecoder, array });
   var id = Buffer.from(buffer.getUint8Array(32)).toString("hex");
@@ -34,6 +51,7 @@ function deserialize(array){
   
 function serialize(id, nodes){
   var mappedNodes = map(nodes);
+
   const buffer = new Serialize.SerialBuffer({ TextEncoder, TextDecoder });
   checksum256.serialize(buffer, id);
   varuint32.serialize(buffer, mappedNodes.length);
@@ -75,5 +93,6 @@ module.exports = {
   getDB,
   getRange,
   serialize,
-  deserialize
+  deserialize,
+  getStartBlock
 }

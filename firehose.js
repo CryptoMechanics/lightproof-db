@@ -29,18 +29,6 @@ const toHex = base64 => Buffer.from(base64, 'base64').toString("hex");
 const streamFirehose = forceStartBlock => new Promise( async (resolve, reject)=>{
   const {blocksDB, rootDB, statusDB} = getDB();
 
-  let { lastBlock: start_block_num, lib } = await getRange(); //set start_block_num to last indexed block
-  if (lib) start_block_num = lib;  //if lib is recorded, set start_block_num to lib
-
-  console.log("Lib is at " + lib)
-  
-  if (forceStartBlock) {
-    console.log("DB forced to start from "+ forceStartBlock);
-    start_block_num = forceStartBlock
-  }
-  
-  if (!start_block_num) start_block_num=1;
-
   console.log("Starting stream from firehose at "+ start_block_num);
   const client = getClient();
   let stream = client.Blocks({ start_block_num, fork_steps: ["STEP_NEW", "STEP_IRREVERSIBLE"]});

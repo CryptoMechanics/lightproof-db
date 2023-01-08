@@ -1,15 +1,27 @@
-require('dotenv').config();
-const { getDB, getRange } = require("./db");
-const { startApi } = require("./api");
-const {  streamFirehose } = require('./firehose');
 
+require('dotenv').config();
+const { getDB, getStartBlock } = require("./db");
+const { startApi } = require("./api");
 const DB = getDB(); //initalize databases
+const historyProvider = process.env.HISTORY_PROVIDER || 'firehose';
 
 async function main(){
-  console.log(await getRange());
+
+  const startBlock = await getStartBlock();
+  console.log("startBlock",startBlock)
+  if (historyProvider === 'firehose'){
+    const {  streamFirehose } = require('./firehose');
+    await streamFirehose(startBlock);  
+  }
+  else if (historyProvider === 'ship'){
+    const SHIP = require('./ship');
+    const ship = new SHIP();
+    ship.start(process.env.SHIP_WS);
+  }
   await startApi();
-  await streamFirehose(process.env.FORCE_START_BLOCK);  
+
   console.log("READY")
+
 }
 
 var signals = {

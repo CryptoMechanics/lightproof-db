@@ -16,7 +16,8 @@
     "dotenv": "^16.0.2",
     "enf-eosjs": "^23.0.0-rc4",
     "lmdb": "^2.6.0-alpha7",
-    "protobufjs": "^6.10.2"
+    "protobufjs": "^6.10.2",
+    "ws": "^8.11.0"
   },
   "devDependencies": {
     "pkg": "^5.8.0"
