@@ -29,9 +29,9 @@ const toHex = base64 => Buffer.from(base64, 'base64').toString("hex");
 const streamFirehose = forceStartBlock => new Promise( async (resolve, reject)=>{
   const {blocksDB, rootDB, statusDB} = getDB();
 
-  console.log("Starting stream from firehose at "+ start_block_num);
+  console.log("Starting stream from firehose at "+ forceStartBlock);
   const client = getClient();
-  let stream = client.Blocks({ start_block_num, fork_steps: ["STEP_NEW", "STEP_IRREVERSIBLE"]});
+  let stream = client.Blocks({ start_block_num: forceStartBlock, fork_steps: ["STEP_NEW", "STEP_IRREVERSIBLE"]});
 
   stream.on("data", async (data) => {
     const { block: rawBlock } = data;
