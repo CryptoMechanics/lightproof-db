@@ -46,21 +46,29 @@ function deserialize(array){
     var hashBuff = hashesDB.getBinary(index);
     nodes.push(hashBuff.toString('hex'));
   }
-  return {id, nodes} ;
+  //Additions for aliveUntil
+  const aliveUntil = buffer.getUint32()
+  return {id, nodes, aliveUntil} ;
 }
   
-function serialize(id, nodes){
+function serialize(id, nodes, aliveUntil=0){
   var mappedNodes = map(nodes);
 
   const buffer = new Serialize.SerialBuffer({ TextEncoder, TextDecoder });
   checksum256.serialize(buffer, id);
   varuint32.serialize(buffer, mappedNodes.length);
   for (var node of mappedNodes) uint32.serialize(buffer, node);
+
+  //Additions for aliveUntil
+  uint32.serialize(buffer, aliveUntil)
+
   return buffer.asUint8Array();
 }
 
 function map(nodes){
-  //TODO hashes count is last key of hashesDB + 1
+  if (!nodes || !nodes.length) return [];
+  //  TODO turn into an atomic transaction
+  //  TODO hashes count is last key of hashesDB + 1
 	var map = [];
 	for (var i = 0 ; i < nodes.length ;i++){
     var buffNode = Buffer.from(nodes[i], "hex");
@@ -81,6 +89,7 @@ function map(nodes){
 
 
 const getRange = async () =>{
+  //  TODO turn into an atomic transaction
   let firstBlock, lastBlock;
   for (let key of await blocksDB.getKeys({ limit:1 })) firstBlock = key;
   for (let key of await blocksDB.getKeys({ limit:1, reverse:1})) lastBlock = key;
