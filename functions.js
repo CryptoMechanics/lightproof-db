@@ -50,11 +50,12 @@ function annotateIncrementalMerkleTree(tree, log){
   var npo2 = nextPowerOf2(tree.nodeCount);
   var ppo2 = prevPowerOf2(tree.nodeCount+1);
   
-  // if (log){
-  //   console.log("\nAnnotating tree for block : ", tree.nodeCount);
-  //   console.log("       -> next power of 2 : ", npo2);
-  //   console.log("       -> prev power of 2 : ", ppo2);
-  // }
+  if (log){
+    console.log("\nAnnotating tree for block : ", tree.nodeCount);
+    console.log("       -> next power of 2 : ", npo2);
+    console.log("       -> prev power of 2 : ", ppo2);
+    console.log("")
+  }
 
   var accountedForLower = 0;
   var accountedForUpper = 0;
@@ -99,11 +100,11 @@ function annotateIncrementalMerkleTree(tree, log){
       if (po2>1) {
         aliveUntil =  accountedForUpper + po2;
         blocksRequired.push({blockNum: accountedForUpper +1, aliveUntil });
-        if(log)  console.log("  node ", tree.activeNodes[i].node," ".repeat(5), " po2 : ", po2, " ".repeat(rootIntegers - po2.toString().length), "alive until", aliveUntil, "ttl", tree.activeNodes[i].ttl," ".repeat(5 - tree.activeNodes[i].ttl.toString().length), "(" + type +")", "accounts for leaves : ", accountedForLower, " to ", accountedForUpper);
+        if(log)  console.log("  node ", tree.activeNodes[i].node," ".repeat(5), " po2 : ", po2, " ".repeat(rootIntegers - po2.toString().length), "alive until", aliveUntil, "ttl", tree.activeNodes[i].ttl," ".repeat(rootIntegers - tree.activeNodes[i].ttl.toString().length), "(" + type +")", "accounts for leaves : ", accountedForLower, " to ", accountedForUpper);
       }
       else {
         aliveUntil =   accountedForLower+1;
-        if(log) console.log("  node ", tree.activeNodes[i].node," ".repeat(5), " po2 : ", 1, " ".repeat(rootIntegers-1), "alive until",aliveUntil, "ttl", 1," ".repeat(4), "(" + type +")","accounts for leaves : ", accountedForLower);
+        if(log) console.log("  node ", tree.activeNodes[i].node," ".repeat(5), " po2 : ", 1, " ".repeat(rootIntegers-1), "alive until",aliveUntil, "ttl", 1," ".repeat(rootIntegers-1), "(" + type +")","accounts for leaves : ", accountedForLower);
       }
       blockToEdit = {blockNum: tree.nodeCount, aliveUntil }
     }

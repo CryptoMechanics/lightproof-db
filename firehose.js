@@ -71,16 +71,13 @@ const streamFirehose = forceStartBlock => new Promise( async (resolve, reject)=>
       }
       const blockMerkle = JSON.parse(JSON.stringify(block.blockrootMerkle));
       blockMerkle.activeNodes.forEach((node,index) => blockMerkle.activeNodes[index] = toHex(node) );
-      console.log(blockMerkle)
       
       const buffer = serialize(block.id, blockMerkle.activeNodes);
       blocksDB.put(block.number, asBinary(buffer));
 
 
       //Additions for aliveUntil
-      const {blockToEdit} = annotateIncrementalMerkleTree(blockMerkle, true);
-      console.log("\nblockToEdit",blockToEdit)
-      console.log("\n############################\n")
+      const {blockToEdit} = annotateIncrementalMerkleTree(blockMerkle, false);
       let blockNum = blockToEdit.blockNum;
 
       let nodesBuffer = await blocksDB.getBinary(blockNum);
