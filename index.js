@@ -24,15 +24,15 @@ async function main(){
 
 }
 
-var signals = { SIGHUP: 1, SIGINT: 2, SIGTERM: 15 };
-Object.keys(signals).forEach((signal) => {
-  process.on(signal, () => {
-    console.log(`process received a ${signal} signal`);
-    let value = signals[signal];
-    process.exit();
-    // process.exit(128 + value);
-  });
-});
+// var signals = { SIGHUP: 1, SIGINT: 2, SIGTERM: 15 };
+// Object.keys(signals).forEach((signal) => {
+//   process.on(signal, () => {
+//     console.log(`process received a ${signal} signal`);
+//     let value = signals[signal];
+//     process.exit();
+//     // process.exit(128 + value);
+//   });
+// });
 
 main().then().catch(ex=>{
   console.log("Main error",ex);

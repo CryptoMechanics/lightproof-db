@@ -161,8 +161,9 @@ const bootstrapTiny = () => new Promise( async (resolve, reject)=>{
     blocksDB.put(startSyncBlock.number, asBinary(fistBuffer));
     for (var b of blocksRequired){
       const { block } = result.shift();
-      // toStore.push({ blockNum: block.number, id: block.id, aliveUntil: b.aliveUntil });
-      const buffer = serialize(block.id, [], b.aliveUntil);
+      let firstNode = toHex(block.blockrootMerkle.activeNodes[0]);
+
+      const buffer = serialize(block.id, [firstNode], b.aliveUntil);
       blocksDB.put(block.number, asBinary(buffer));
       delete block;
     }
