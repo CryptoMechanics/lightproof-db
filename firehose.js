@@ -18,7 +18,7 @@ const sleep = s => new Promise(resolve=>setTimeout(resolve,s*1000));
 const grpcAddress = process.env.GRPC_ADDRESS;
 console.log("grpcAddress",grpcAddress);
 
-const { getDB, getStartBlock, serialize, getRange, deserialize } = require("./db");
+const { getDB, getStartBlock, serialize, getRange, deserialize, pruneDB } = require("./db");
 const { annotateIncrementalMerkleTree } = require("./functions");
 
 const getClient = () => new firehoseStream(
@@ -44,7 +44,10 @@ const streamFirehose = forceStartBlock => new Promise( async (resolve, reject)=>
     const { block: rawBlock } = data;
     let block = eosioBlockMsg.decode(rawBlock.value);
     // console.log("block.number",block.number,data.step)
-    if( block.number%1000 === 0 && data.step === "STEP_IRREVERSIBLE") console.log("got block", block.number)
+    if( block.number%1000 === 0 && data.step === "STEP_IRREVERSIBLE") {
+      console.log("LIB stored", block.number)
+      await pruneDB();
+    }
     await processBlock({block, step: data.step});
   });
 

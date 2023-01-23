@@ -1,6 +1,6 @@
 
 require('dotenv').config();
-const { getDB } = require("./db");
+const { getDB, pruneDB } = require("./db");
 const { startApi } = require("./api");
 const { bootstrapTiny } = require("./firehose");
 const DB = getDB(); //initalize databases
@@ -10,6 +10,8 @@ async function main(){
   const startBlock = await bootstrapTiny();
   console.log("finished bootstrapping")
   await startApi();
+  await pruneDB();
+
   if (historyProvider === 'firehose'){
     const {  streamFirehose } = require('./firehose');
     await streamFirehose(startBlock);  
@@ -19,7 +21,6 @@ async function main(){
     const ship = new SHIP();
     ship.start(process.env.SHIP_WS);
   }
-
   console.log("READY")
 
 }

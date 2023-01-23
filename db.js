@@ -98,10 +98,53 @@ const getRange = async () =>{
   return {firstBlock, lastBlock, lib, lastBlockTimestamp}
 }
 
+const pruneDB = async () => {
+  const cuttoff = process.env.PRUNING_CUTOFF || 86400; //default to 12hr cuttoff
+  let { lastBlock } = await getRange(); 
+  const pruneMaxBlock = lastBlock - parseInt(cuttoff) ;
+  console.log("\n###########################################################################\n")
+  console.log("Pruning database at a max block of",pruneMaxBlock, `(-${cuttoff} from head)`)
+
+  let prunedRecords = 0;
+  let deletedNodes = 0;
+  let deletedRecords = 0; 
+  //iterate over all blocksDB, 
+  return rootDB.transaction(async () => {
+
+    for (let key of await blocksDB.getKeys({end:pruneMaxBlock })) {
+      let nodesBuffer = blocksDB.getBinary(key);
+      if (!nodesBuffer) continue;
+      let result = deserialize(nodesBuffer);
+      if (result.aliveUntil && result.aliveUntil < pruneMaxBlock){
+        console.log(`Deleted ${key}. AliveUntil (${result.aliveUntil}) < head - cuttoff`);
+        blocksDB.remove(key); //remove from blocksDb
+        deletedRecords++;
+        //TODO cleanup hashesDB and hashIndexDB
+
+      }
+      else if (key < pruneMaxBlock && result.nodes.length>1){
+        console.log(`Pruning ${key} active nodes, and keeping only the first`,);
+        const editedBuffer = serialize(result.id, [result.nodes[0]], result.aliveUntil);
+        blocksDB.put(key, asBinary(editedBuffer));
+        prunedRecords++;
+        deletedNodes+=result.nodes.length - 1;
+        //TODO cleanup hashesDB and hashIndexDB
+      }
+    }
+
+    console.log("\nFinsihed pruning:\n")
+    console.log("Records deleted:",deletedRecords)
+    console.log("Records pruned:",prunedRecords)
+    console.log("Nodes removed:",deletedNodes)
+    console.log("\n###########################################################################\n")
+  });
+}
+
 module.exports = {
   getDB,
   getRange,
   serialize,
   deserialize,
-  getStartBlock
+  getStartBlock,
+  pruneDB
 }
