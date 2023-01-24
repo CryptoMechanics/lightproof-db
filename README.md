@@ -1,3 +1,5 @@
+# NOTE : This repository is no longer maintained. New repository is https://github.com/CryptoMechanics/lightproof-db
+
 # lightproof-db
 
 Lightproof-db for antelope stores the block id, number and active nodes for each block. It exposes the data through an http GET server.
