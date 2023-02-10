@@ -18,7 +18,7 @@ const sleep = s => new Promise(resolve=>setTimeout(resolve,s*1000));
 const grpcAddress = process.env.GRPC_ADDRESS;
 console.log("grpcAddress",grpcAddress);
 
-const { getDB, getStartBlock, serialize, getRange, deserialize, pruneDB } = require("./db");
+const { getDB, getStartBlock, serialize, getRange, deserialize, pruneDB, handleHashesDB } = require("./db");
 const { annotateIncrementalMerkleTree } = require("./functions");
 
 const getClient = () => new firehoseStream(
@@ -66,30 +66,42 @@ const streamFirehose = forceStartBlock => new Promise( async (resolve, reject)=>
     return rootDB.transaction(async () => {
       // let block = JSON.parse(JSON.stringify(data.block, null, "  "));
       let block = data.block;
-      if (data.step === "STEP_IRREVERSIBLE") statusDB.put("lib", block.number);
+
+      //update status DB
+      if (data.step === "STEP_IRREVERSIBLE") return statusDB.put("lib", block.number);
       else { //if STEP_NEW
         let date = (new Date(parseInt(block.header.timestamp.seconds)*1000)).toISOString().replace('Z', '');
         if (block.header.timestamp.nanos) date = date.replace('000', '500')
         statusDB.put("lastBlockTimestamp", date); 
       }
+
+
+      //handle forks for the active nodes of the block;
+      let blockExists = blocksDB.getBinary(block.number);
+      if (blockExists && data.step=="STEP_NEW"){
+        console.log("block already exists, handling the forked blocks active nodes",block.number )
+        const existingBlock = await deserialize(blockExists);
+        for (var node of existingBlock.nodes) await handleHashesDB(node);
+      }
+
       const blockMerkle = JSON.parse(JSON.stringify(block.blockrootMerkle));
       blockMerkle.activeNodes.forEach((node,index) => blockMerkle.activeNodes[index] = toHex(node) );
-      
-      const buffer = serialize(block.id, blockMerkle.activeNodes);
+      const buffer = await serialize(block.id, blockMerkle.activeNodes, 0);
       blocksDB.put(block.number, asBinary(buffer));
 
-
-      //Additions for aliveUntil
+      //Edit aliveUntil of previous block;
       const {blockToEdit} = annotateIncrementalMerkleTree(blockMerkle, false);
       let blockNum = blockToEdit.blockNum;
 
       let nodesBuffer = await blocksDB.getBinary(blockNum);
-      if (!nodesBuffer) {
-        console.log("Can't find block in db to add aliveUntil")
+      if (!nodesBuffer)  {
+        console.log("Can't find block in db to add aliveUntil", blockNum);
+        process.exit();
       }
       const result = await deserialize(nodesBuffer);
-      const editedBuffer = serialize(result.id, result.nodes, blockToEdit.aliveUntil);
+      const editedBuffer = serialize(result.id, result.nodes, blockToEdit.aliveUntil, false);
       blocksDB.put(blockNum, asBinary(editedBuffer));
+
     });
   }
 
@@ -140,6 +152,10 @@ const bootstrapTiny = () => new Promise( async (resolve, reject)=>{
   const { firstBlock } = await getRange();
   const startSyncHeight = process.env.START_SYNC_HEIGHT;
   const pruningCutoff = process.env.PRUNING_CUTOFF || 7200; // 1hr worth of blocks if not specified
+
+  // let testBlock = (await getIrreversibleBlock(293500001)).block.blockrootMerkle.activeNodes;
+  // testBlock.forEach( (node,i) => testBlock[i] = toHex(node))
+  // console.log("testBlock",testBlock);
   
   //if db contains any blocks, or no START_SYNC_HEIGHT is provided, then no bootstrapping required
   if (firstBlock || !startSyncHeight) return resolve();
@@ -149,7 +165,6 @@ const bootstrapTiny = () => new Promise( async (resolve, reject)=>{
   const tree = startingBlock.block.blockrootMerkle;
   tree.activeNodes.forEach( (node,i) => tree.activeNodes[i] = toHex(node))
   console.log(tree)
-  delete startingBlock;
   let startSyncBlock = {number: startingBlock.block.number, id: startingBlock.block.id, activeNodes: JSON.parse(JSON.stringify(tree.activeNodes))};
 
   const { blocksRequired } = annotateIncrementalMerkleTree(tree, true);
@@ -158,20 +173,20 @@ const bootstrapTiny = () => new Promise( async (resolve, reject)=>{
   let promises = [];
   for (var b of blocksRequired) promises.push(getIrreversibleBlock(b.blockNum));
 
-  const result = await Promise.all(promises);
+  let result = await Promise.all(promises);
   await rootDB.transaction(async () => {
     const fistBuffer = serialize(startSyncBlock.id, startSyncBlock.activeNodes);
     blocksDB.put(startSyncBlock.number, asBinary(fistBuffer));
-    for (var b of blocksRequired){
-      const { block } = result.shift();
+    for (var i=0;i<blocksRequired.length;i++){
+      const { block } = result[i];
       let firstNode = toHex(block.blockrootMerkle.activeNodes[0]);
-
-      const buffer = serialize(block.id, [firstNode], b.aliveUntil);
+      const buffer = serialize(block.id, [firstNode], blocksRequired[i].aliveUntil);
       blocksDB.put(block.number, asBinary(buffer));
       delete block;
     }
-    statusDB.put("lib", blocksRequired[blocksRequired.length -1].number);
+    statusDB.put("lib", startSyncBlock.number);
   });
+  delete startingBlock;
   resolve(startSyncBlock.number+1);
 });
 

@@ -4,6 +4,7 @@ const { open, asBinary } = require('lmdb');
 
 const varuint32 = types.get("varuint32");
 const uint32 = types.get("uint32"); 
+const uint64 = types.get("uint64"); 
 const checksum256 = types.get("checksum256"); 
 
 let rootDB,blocksDB, hashesDB, hashIndexDB, statusDB;
@@ -24,7 +25,7 @@ const getStartBlock = async () => {
   let { lib: startBlock } = await getRange(); 
     
   console.log("Lib is at " + startBlock);
-
+  if(startBlock) startBlock++;
   //set startBlock to ENV FORCE_START_BLOCK
   const forceStartBlock = process.env.FORCE_START_BLOCK;
   if (forceStartBlock) {
@@ -40,19 +41,21 @@ function deserialize(array){
   const buffer = new Serialize.SerialBuffer({ TextEncoder, TextDecoder, array });
   var id = Buffer.from(buffer.getUint8Array(32)).toString("hex");
   var count = buffer.getVaruint32();
-  var nodes = [];
+  var nodes = [], nodesCount=[];
   for (var i = 0 ; i < count; i++){
     var index = buffer.getUint32();
     var hashBuff = hashesDB.getBinary(index);
-    nodes.push(hashBuff.toString('hex'));
+    let record = JSON.parse(hashBuff.toString());
+    nodes.push(record.node);
+    nodesCount.push(record.count)
   }
   //Additions for aliveUntil
-  const aliveUntil = buffer.getUint32()
-  return {id, nodes, aliveUntil} ;
+  const aliveUntil = buffer.getUint64AsNumber();
+  return {id, nodes, aliveUntil, nodesCount} ;
 }
   
-function serialize(id, nodes, aliveUntil=0){
-  var mappedNodes = map(nodes);
+function serialize(id, nodes, aliveUntil=0, addHashesCount = true){
+  var mappedNodes = map(nodes, addHashesCount);
 
   const buffer = new Serialize.SerialBuffer({ TextEncoder, TextDecoder });
   checksum256.serialize(buffer, id);
@@ -60,12 +63,12 @@ function serialize(id, nodes, aliveUntil=0){
   for (var node of mappedNodes) uint32.serialize(buffer, node);
 
   //Additions for aliveUntil
-  uint32.serialize(buffer, aliveUntil)
+  uint64.serialize(buffer, aliveUntil)
 
   return buffer.asUint8Array();
 }
 
-function map(nodes){
+function map(nodes, addHashesCount){
   if (!nodes || !nodes.length) return [];
   //  TODO turn into an atomic transaction
   //  TODO hashes count is last key of hashesDB + 1
@@ -77,11 +80,25 @@ function map(nodes){
       let hashesCount = 0;
       for (let key of hashesDB.getKeys({ limit:1, reverse:1 })) hashesCount = key + 1;
       hashIndexDB.putSync(buffNode, hashesCount);
-      hashesDB.putSync( hashesCount, asBinary(buffNode));
+
+      let record = { node: nodes[i], count: 1 };
+      var buf = Buffer.from(JSON.stringify(record));
+
+      hashesDB.putSync( hashesCount, asBinary(buf));
 			map.push(hashesCount);
-			// hashesCount++;
 		}
-		else map.push(index);
+		else {
+      //increment count of node in hashesDB
+      if (addHashesCount){
+        const hashesDBBuffer = hashesDB.getBinary(index);
+        let record = JSON.parse(hashesDBBuffer.toString());
+        let editedRecord = { node: record.node, count: record.count+1 };
+        var newBuffer = Buffer.from(JSON.stringify(editedRecord));
+        hashesDB.putSync(index, asBinary(newBuffer));
+      }
+      //push index that is already assigned to the node
+      map.push(index);
+    }
 	}
 	return map;
 }
@@ -112,23 +129,32 @@ const pruneDB = async () => {
   return rootDB.transaction(async () => {
 
     for (let key of await blocksDB.getKeys({end:pruneMaxBlock })) {
+      
       let nodesBuffer = blocksDB.getBinary(key);
       if (!nodesBuffer) continue;
       let result = deserialize(nodesBuffer);
+
       if (result.aliveUntil && result.aliveUntil < pruneMaxBlock){
-        console.log(`Deleted ${key}. AliveUntil (${result.aliveUntil}) < head - cuttoff`);
-        blocksDB.remove(key); //remove from blocksDb
+        
+        //remove from blocksDb
+        blocksDB.remove(key); 
         deletedRecords++;
-        //TODO cleanup hashesDB and hashIndexDB
+
+        //handle the nodes to be removed from this block
+        for (var i=0;i<result.nodes.length;i++) handleHashesDB(result.nodes[i])
 
       }
       else if (key < pruneMaxBlock && result.nodes.length>1){
-        console.log(`Pruning ${key} active nodes, and keeping only the first`,);
+
+        //handle the nodes to be removed from this block
+        for (var i=1;i<result.nodes.length;i++) handleHashesDB(result.nodes[i])
+
+        //update block from blocksDB with aliveUntil value
         const editedBuffer = serialize(result.id, [result.nodes[0]], result.aliveUntil);
         blocksDB.put(key, asBinary(editedBuffer));
         prunedRecords++;
         deletedNodes+=result.nodes.length - 1;
-        //TODO cleanup hashesDB and hashIndexDB
+
       }
     }
 
@@ -136,15 +162,37 @@ const pruneDB = async () => {
     console.log("Records deleted:",deletedRecords)
     console.log("Records pruned:",prunedRecords)
     console.log("Nodes removed:",deletedNodes)
-    console.log("\n###########################################################################\n")
+    console.log("\n###########################################################################\n");
   });
+
+
 }
 
+async function handleHashesDB(node){
+  var buffNode = Buffer.from(node, "hex");
+  var index = hashIndexDB.get(buffNode);
+
+  //get hashesDB record of node using the index
+  const hashesDBBuffer = await hashesDB.getBinary(index);
+  let record = JSON.parse(hashesDBBuffer.toString());
+  if (record.count === 1){
+    //delete the index and the node if its not used in any other block
+    hashesDB.removeSync(index);
+    hashIndexDB.removeSync(buffNode)
+  }
+  else if (record.count>1){
+    //decrement the count of the node in hashesDB
+    let editedRecord = { node: record.node, count: record.count-1 };
+    var newBuffer = Buffer.from(JSON.stringify(editedRecord));
+    hashesDB.putSync(index, asBinary(newBuffer));
+  }
+}
 module.exports = {
   getDB,
   getRange,
   serialize,
   deserialize,
   getStartBlock,
-  pruneDB
+  pruneDB,
+  handleHashesDB
 }
