@@ -9,7 +9,6 @@ const historyProvider = process.env.HISTORY_PROVIDER || 'firehose';
 async function main(){
   await startApi();
   const startBlock = await bootstrapTiny();
-  console.log("finished bootstrapping")
   await pruneDB();
 
   if (historyProvider === 'firehose'){

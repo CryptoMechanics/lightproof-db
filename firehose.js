@@ -21,12 +21,11 @@ console.log("grpcAddress",grpcAddress);
 const { getDB, getStartBlock, serialize, getRange, deserialize, pruneDB, handleHashesDB } = require("./db");
 const { annotateIncrementalMerkleTree } = require("./functions");
 
-const getClient = () => new firehoseStream(
-  grpcAddress,
-  process.env.GRPC_INSECURE=='true' ? grpc.credentials.createInsecure(): grpc.credentials.createSsl(),{
-    "grpc.max_receive_message_length": 1024 * 1024 * 100,
-    "grpc.max_send_message_length": 1024 * 1024 * 100,
-  }
+const getClient = useBootFirehose => new firehoseStream(
+  useBootFirehose ? process.env.BOOT_GRPC_ADDRESS :  process.env.GRPC_ADDRESS,
+  useBootFirehose ? process.env.BOOT_GRPC_INSECURE=='true' ? grpc.credentials.createInsecure(): grpc.credentials.createSsl() 
+                  : process.env.GRPC_INSECURE=='true' ? grpc.credentials.createInsecure(): grpc.credentials.createSsl(),
+  {"grpc.max_receive_message_length": 1024 * 1024 * 100, "grpc.max_send_message_length": 1024 * 1024 * 100 }
 );
 const toHex = base64 => Buffer.from(base64, 'base64').toString("hex");
 
@@ -109,7 +108,7 @@ const streamFirehose = forceStartBlock => new Promise( async (resolve, reject)=>
 
 const getBlock = req => new Promise((resolve,reject) => {
   if (!req.retries && req.retires!==0) req.retries = 10;
-  const client = getClient();
+  const client = getClient(req.useBootFirehose);
   let stream = client.Blocks(req.firehoseOptions)
 
   stream.on("data", (data) => {
@@ -138,13 +137,14 @@ const getBlock = req => new Promise((resolve,reject) => {
 
 });
 
-const getIrreversibleBlock = block_num => getBlock({
+const getIrreversibleBlock = (block_num, useBootFirehose) => getBlock({
   firehoseOptions : {
     start_block_num: block_num,
     stop_block_num: block_num,
     include_filter_expr: "",
     fork_steps: ["STEP_IRREVERSIBLE"]
-  }
+  },
+  useBootFirehose
 });
 
 const bootstrapTiny = () => new Promise( async (resolve, reject)=>{
@@ -153,15 +153,11 @@ const bootstrapTiny = () => new Promise( async (resolve, reject)=>{
   const startSyncHeight = process.env.START_SYNC_HEIGHT;
   const pruningCutoff = process.env.PRUNING_CUTOFF || 7200; // 1hr worth of blocks if not specified
 
-  // let testBlock = (await getIrreversibleBlock(293500001)).block.blockrootMerkle.activeNodes;
-  // testBlock.forEach( (node,i) => testBlock[i] = toHex(node))
-  // console.log("testBlock",testBlock);
-  
   //if db contains any blocks, or no START_SYNC_HEIGHT is provided, then no bootstrapping required
   if (firstBlock || !startSyncHeight) return resolve();
   
   console.log(`\nBootstrapping Tiny from block #${startSyncHeight} with a cutoff of ${pruningCutoff} blocks (${(pruningCutoff/7200).toFixed(2)} hours behind head)`);
-  let startingBlock = await getIrreversibleBlock(startSyncHeight)
+  let startingBlock = await getIrreversibleBlock(startSyncHeight, true)
   const tree = startingBlock.block.blockrootMerkle;
   tree.activeNodes.forEach( (node,i) => tree.activeNodes[i] = toHex(node))
   console.log(tree)
@@ -171,7 +167,7 @@ const bootstrapTiny = () => new Promise( async (resolve, reject)=>{
   console.log("\nblocksRequired",blocksRequired);
   
   let promises = [];
-  for (var b of blocksRequired) promises.push(getIrreversibleBlock(b.blockNum));
+  for (var b of blocksRequired) promises.push(getIrreversibleBlock(b.blockNum, true));
 
   let result = await Promise.all(promises);
   await rootDB.transaction(async () => {
@@ -187,6 +183,8 @@ const bootstrapTiny = () => new Promise( async (resolve, reject)=>{
     statusDB.put("lib", startSyncBlock.number);
   });
   delete startingBlock;
+  console.log("finished bootstrapping")
+
   resolve(startSyncBlock.number+1);
 });
 
