@@ -116,7 +116,8 @@ const getRange = async () =>{
 }
 
 const pruneDB = async () => {
-  const cuttoff = process.env.PRUNING_CUTOFF || 86400; //default to 12hr cuttoff
+  const cuttoff = process.env.PRUNING_CUTOFF
+  if (!cuttoff || parseInt(cuttoff)==0) return console.log("Pruning is disabled, nothing to do")
   let { lastBlock } = await getRange(); 
   const pruneMaxBlock = lastBlock - parseInt(cuttoff) ;
   console.log("\n###########################################################################\n")
@@ -141,16 +142,16 @@ const pruneDB = async () => {
         deletedRecords++;
 
         //handle the nodes to be removed from this block
-        for (var i=0;i<result.nodes.length;i++) handleHashesDB(result.nodes[i])
+        for (var i=0;i<result.nodes.length;i++) await handleHashesDB(result.nodes[i])
 
       }
       else if (key < pruneMaxBlock && result.nodes.length>1){
 
         //handle the nodes to be removed from this block
-        for (var i=1;i<result.nodes.length;i++) handleHashesDB(result.nodes[i])
+        for (var i=1;i<result.nodes.length;i++) await handleHashesDB(result.nodes[i])
 
         //update block from blocksDB with aliveUntil value
-        const editedBuffer = serialize(result.id, [result.nodes[0]], result.aliveUntil);
+        const editedBuffer = serialize(result.id, [result.nodes[0]], result.aliveUntil, false);
         blocksDB.put(key, asBinary(editedBuffer));
         prunedRecords++;
         deletedNodes+=result.nodes.length - 1;
@@ -158,7 +159,7 @@ const pruneDB = async () => {
       }
     }
 
-    console.log("\nFinsihed pruning:\n")
+    console.log("\nFinished pruning:\n")
     console.log("Records deleted:",deletedRecords)
     console.log("Records pruned:",prunedRecords)
     console.log("Nodes removed:",deletedNodes)
