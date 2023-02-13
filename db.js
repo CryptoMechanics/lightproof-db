@@ -111,8 +111,9 @@ const getRange = async () =>{
   for (let key of await blocksDB.getKeys({ limit:1 })) firstBlock = key;
   for (let key of await blocksDB.getKeys({ limit:1, reverse:1})) lastBlock = key;
   const lib = await statusDB.get("lib");
+  const minBlockToProve = await statusDB.get("minBlockToProve") || firstBlock;
   const lastBlockTimestamp = await statusDB.get("lastBlockTimestamp");
-  return {firstBlock, lastBlock, lib, lastBlockTimestamp}
+  return {firstBlock, lastBlock, lib, lastBlockTimestamp, minBlockToProve}
 }
 
 const pruneDB = async () => {
@@ -136,13 +137,14 @@ const pruneDB = async () => {
       let result = deserialize(nodesBuffer);
 
       if (result.aliveUntil && result.aliveUntil < pruneMaxBlock){
-        
+
         //remove from blocksDb
         blocksDB.remove(key); 
         deletedRecords++;
 
         //handle the nodes to be removed from this block
         for (var i=0;i<result.nodes.length;i++) await handleHashesDB(result.nodes[i])
+        deletedNodes+=result.nodes.length;
 
       }
       else if (key < pruneMaxBlock && result.nodes.length>1){
@@ -159,10 +161,12 @@ const pruneDB = async () => {
       }
     }
 
+    //set lowest block that can be proved
+    statusDB.put("minBlockToProve", pruneMaxBlock)
     console.log("\nFinished pruning:\n")
     console.log("Records deleted:",deletedRecords)
     console.log("Records pruned:",prunedRecords)
-    console.log("Nodes removed:",deletedNodes)
+    console.log("Nodes (+references) removed:",deletedNodes)
     console.log("\n###########################################################################\n");
   });
 
