@@ -74,32 +74,23 @@ const streamFirehose = forceStartBlock => new Promise( async (resolve, reject)=>
         statusDB.put("lastBlockTimestamp", date); 
       }
 
-
       //handle forks for the active nodes of the block;
       let blockExists = blocksDB.getBinary(block.number);
       if (blockExists && data.step=="STEP_NEW"){
         console.log("block already exists, handling the forked blocks active nodes",block.number )
         const existingBlock = await deserialize(blockExists);
+        //remove the hash if not used in another block, or reduce its instance count by 1 to roll back the block
         for (var node of existingBlock.nodes) await handleHashesDB(node);
       }
 
       const blockMerkle = JSON.parse(JSON.stringify(block.blockrootMerkle));
       blockMerkle.activeNodes.forEach((node,index) => blockMerkle.activeNodes[index] = toHex(node) );
-      const buffer = await serialize(block.id, blockMerkle.activeNodes, 0);
+
+
+      const { blockToEdit } = annotateIncrementalMerkleTree(JSON.parse(JSON.stringify(blockMerkle)), false); 
+
+      const buffer = await serialize(block.id, blockMerkle.activeNodes, blockToEdit.aliveUntil);
       blocksDB.put(block.number, asBinary(buffer));
-
-      //Edit aliveUntil of previous block;
-      const {blockToEdit} = annotateIncrementalMerkleTree(blockMerkle, false);
-      let blockNum = blockToEdit.blockNum;
-
-      let nodesBuffer = await blocksDB.getBinary(blockNum);
-      if (!nodesBuffer)  {
-        console.log("Can't find block in db to add aliveUntil", blockNum);
-        process.exit();
-      }
-      const result = await deserialize(nodesBuffer);
-      const editedBuffer = serialize(result.id, result.nodes, blockToEdit.aliveUntil, false);
-      blocksDB.put(blockNum, asBinary(editedBuffer));
 
     });
   }
