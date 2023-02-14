@@ -1,7 +1,7 @@
 const WebSocket = require('ws');
 const { Serialize } = require('enf-eosjs');
-const { getDB, getStartBlock, serialize, deserialize } = require("./db");
-const { append } = require("./functions");
+const { getDB, getStartBlock, serialize, deserialize, handleHashesDB, pruneDB } = require("./db");
+const { append, annotateIncrementalMerkleTree } = require("./functions");
 const { blocksDB, rootDB, statusDB } = getDB();
 const { asBinary } = require('lmdb');
 
@@ -119,55 +119,57 @@ class SHIP {
     if (!response.this_block) return;
     let block_num = response.this_block.block_num;
     let block_id = response.this_block.block_id;
+
     //handle forks
-    if ( block_num <= this.current_block ){
-      //TODO verify no fork handling is required, as it will just overwrite the block id and active nodes for the changed block number;
-      console.log(`Detected fork: current:${block_num} <= head:${this.current_block}`)
-      console.log(response)
-      console.log("overwriting block info in lightproof-db")
+    let blockExists = blocksDB.getBinary(block_num);
+    if (blockExists){
+      console.log(`overwriting block #${block_num} in lightproof-db`);
+      let existingBlock
+      try{ existingBlock = await deserialize(blockExists); }
+      catch(ex){ console.log("ex",ex, blockExists); } 
+      //remove the hash if not used in another block, or reduce its instance count by 1 to roll back the block
+      if(existingBlock) for (var node of existingBlock.nodes) await handleHashesDB(node);
     }
+    // }
     this.current_block = block_num;
 
-    if (!(block_num % 5000)){
+    if (!(block_num % 1000)){
       const progress = (100 * ((this.current_block) / response.head.block_num)).toFixed(2)
       console.log(`SHIP: ${progress}% (${this.current_block}/${response.head.block_num})`);
+      await pruneDB();
     }
 
     await rootDB.transaction(async () => {
       
-      if (this.currentArgs.irreversible_only) statusDB.put("lib", block_num);
-      else statusDB.put("lib", block_num - 432);
-      let nodes;
+      let nodes, aliveUntil=0;
+      
       //if starting form genesis
       if(block_num==1) nodes = [];
 
       //if lightproof-db stored the previous block or starting from a snapshot
       else {
-
         let previousBuffer = blocksDB.getBinary(block_num-1);
-        let previous;
-
         //if starting from snapshot 
         if(!previousBuffer){
-          //TODO if block_num is not a power of 2, exit process with message on how to start correctly
-
-          //TODO fetch block's active nodes from a new ibc smart contract table storing the active nodes of relevant powers of 2 blocks 
-          // let nodes = await 
-          previous = {
-            id: response.prev_block.block_id,
-            nodes: []
-          }
-
+          console.log(`Cannot find previous block #${block_num-1} in lightproof-db`);
+          process.exit()
         } 
         //if lightproof-db has the previous block nodes
-        else previous = await deserialize(previousBuffer);
+        let previous = await deserialize(previousBuffer);
 
-        const merkleTree = append(previous.id, previous.nodes, block_num-2);
-        nodes = merkleTree.nodes; 
+        const previousNodeCount = block_num-2
+        const merkleTree = append(previous.id, previous.nodes, previousNodeCount);
+        nodes = merkleTree.activeNodes; 
+        const tree = {...merkleTree, nodeCount: block_num-1}
+        const { blockToEdit } = annotateIncrementalMerkleTree(JSON.parse(JSON.stringify(tree)), false); 
+        aliveUntil = blockToEdit.aliveUntil;
       }
 
-      var buffer = serialize(block_id, nodes);
+      var buffer = serialize(block_id, nodes, aliveUntil);
       blocksDB.put(block_num, asBinary(buffer));
+
+      if (this.currentArgs.irreversible_only) statusDB.put("lib", block_num);
+      else statusDB.put("lib", block_num - 600);
     });
 
     if (this.current_block === this.end_block-1){

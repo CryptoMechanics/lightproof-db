@@ -111,13 +111,16 @@ const getRange = async () =>{
   for (let key of await blocksDB.getKeys({ limit:1 })) firstBlock = key;
   for (let key of await blocksDB.getKeys({ limit:1, reverse:1})) lastBlock = key;
   const lib = await statusDB.get("lib");
+  const minBlockToProve = await statusDB.get("minBlockToProve") || firstBlock;
   const lastBlockTimestamp = await statusDB.get("lastBlockTimestamp");
-  return {firstBlock, lastBlock, lib, lastBlockTimestamp}
+  return {firstBlock, lastBlock, lib, lastBlockTimestamp, minBlockToProve}
 }
 
 const pruneDB = async () => {
-  const cuttoff = process.env.PRUNING_CUTOFF || 86400; //default to 12hr cuttoff
+  const cuttoff = process.env.PRUNING_CUTOFF
+  if (!cuttoff || parseInt(cuttoff)==0) return console.log("Pruning is disabled, nothing to do")
   let { lastBlock } = await getRange(); 
+  if(!lastBlock) return console.log("Nothing to prune, database is empty")
   const pruneMaxBlock = lastBlock - parseInt(cuttoff) ;
   console.log("\n###########################################################################\n")
   console.log("Pruning database at a max block of",pruneMaxBlock, `(-${cuttoff} from head)`)
@@ -135,22 +138,23 @@ const pruneDB = async () => {
       let result = deserialize(nodesBuffer);
 
       if (result.aliveUntil && result.aliveUntil < pruneMaxBlock){
-        
+
         //remove from blocksDb
         blocksDB.remove(key); 
         deletedRecords++;
 
         //handle the nodes to be removed from this block
-        for (var i=0;i<result.nodes.length;i++) handleHashesDB(result.nodes[i])
+        for (var i=0;i<result.nodes.length;i++) await handleHashesDB(result.nodes[i])
+        deletedNodes+=result.nodes.length;
 
       }
       else if (key < pruneMaxBlock && result.nodes.length>1){
 
         //handle the nodes to be removed from this block
-        for (var i=1;i<result.nodes.length;i++) handleHashesDB(result.nodes[i])
+        for (var i=1;i<result.nodes.length;i++) await handleHashesDB(result.nodes[i])
 
         //update block from blocksDB with aliveUntil value
-        const editedBuffer = serialize(result.id, [result.nodes[0]], result.aliveUntil);
+        const editedBuffer = serialize(result.id, [result.nodes[0]], result.aliveUntil, false);
         blocksDB.put(key, asBinary(editedBuffer));
         prunedRecords++;
         deletedNodes+=result.nodes.length - 1;
@@ -158,10 +162,12 @@ const pruneDB = async () => {
       }
     }
 
-    console.log("\nFinsihed pruning:\n")
+    //set lowest block that can be proved
+    statusDB.put("minBlockToProve", pruneMaxBlock)
+    console.log("\nFinished pruning:\n")
     console.log("Records deleted:",deletedRecords)
     console.log("Records pruned:",prunedRecords)
-    console.log("Nodes removed:",deletedNodes)
+    console.log("Nodes (+references) removed:",deletedNodes)
     console.log("\n###########################################################################\n");
   });
 

@@ -5,9 +5,9 @@ const makeCanonicalPair = (l,r) => ({ l: maskLeft(l), r: maskRight(r) });
 function append(digest, activeNodes, nodeCount, stopAtDepth = -1) {
 
   const maxDepth = calculateMaxDepth(nodeCount + 1);
-  const currentDepth = stopAtDepth == -1 ? maxDepth - 1 : stopAtDepth;
+  let currentDepth = stopAtDepth == -1 ? maxDepth - 1 : stopAtDepth;
 
-  const count = 0;
+  let count = 0;
   const nodes = [];
   let partial = false;
   let index = nodeCount;
@@ -32,7 +32,7 @@ function append(digest, activeNodes, nodeCount, stopAtDepth = -1) {
   }
 
   nodes.push(top);
-  return { nodes, root: top };
+  return { activeNodes: nodes, root: top };
 }
 
 function hashPair(p){
