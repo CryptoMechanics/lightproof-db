@@ -120,6 +120,7 @@ const pruneDB = async () => {
   const cuttoff = process.env.PRUNING_CUTOFF
   if (!cuttoff || parseInt(cuttoff)==0) return console.log("Pruning is disabled, nothing to do")
   let { lastBlock } = await getRange(); 
+  if(!lastBlock) return console.log("Nothing to prune, database is empty")
   const pruneMaxBlock = lastBlock - parseInt(cuttoff) ;
   console.log("\n###########################################################################\n")
   console.log("Pruning database at a max block of",pruneMaxBlock, `(-${cuttoff} from head)`)

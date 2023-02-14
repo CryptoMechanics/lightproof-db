@@ -142,19 +142,27 @@ const bootstrapTiny = () => new Promise( async (resolve, reject)=>{
   const {blocksDB, rootDB, statusDB} = getDB();
   const { firstBlock } = await getRange();
   const startSyncHeight = process.env.START_SYNC_HEIGHT;
-  const pruningCutoff = process.env.PRUNING_CUTOFF || 7200; // 1hr worth of blocks if not specified
-
-  //if db contains any blocks, or no START_SYNC_HEIGHT is provided, then no bootstrapping required
-  if (firstBlock || !startSyncHeight) return resolve();
+  const bootstrap = process.env.BOOTSTRAP;
+ 
   
-  console.log(`\nBootstrapping Tiny from block #${startSyncHeight} with a cutoff of ${pruningCutoff} blocks (${(pruningCutoff/7200).toFixed(2)} hours behind head)`);
+  //if db contains any blocks, or no START_SYNC_HEIGHT is provided, then no bootstrapping required
+  if(bootstrap!='true') console.log("Bootstrap is disabled");
+  else if(firstBlock) console.log("Non-empty database, skipping bootstrap");
+
+  if (firstBlock || bootstrap!='true') return resolve();
+  
+  if (!startSyncHeight){
+    console.log("Bootstrap is enabled, but startSyncHeight is not configured")
+    process.exit();  
+  }
+  
+  console.log(`\nBootstrapping Tiny-db from block #${startSyncHeight}`);
   let startingBlock = await getIrreversibleBlock(startSyncHeight, true)
   const tree = startingBlock.block.blockrootMerkle;
   tree.activeNodes.forEach( (node,i) => tree.activeNodes[i] = toHex(node))
-  console.log(tree)
   let startSyncBlock = {number: startingBlock.block.number, id: startingBlock.block.id, activeNodes: JSON.parse(JSON.stringify(tree.activeNodes))};
 
-  const { blocksRequired } = annotateIncrementalMerkleTree(tree, true);
+  const { blocksRequired } = annotateIncrementalMerkleTree(tree, false);
   console.log("\nblocksRequired",blocksRequired);
   
   let promises = [];
