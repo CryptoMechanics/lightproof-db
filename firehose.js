@@ -180,6 +180,7 @@ const bootstrapTiny = () => new Promise( async (resolve, reject)=>{
       delete block;
     }
     statusDB.put("lib", startSyncBlock.number);
+    statusDB.put("minBlockToProve", startSyncBlock.number);
   });
   delete startingBlock;
   console.log("finished bootstrapping")
