@@ -162,7 +162,7 @@ class SHIP {
         nodes = merkleTree.activeNodes; 
         const tree = {...merkleTree, nodeCount: block_num-1}
         const { blockToEdit } = annotateIncrementalMerkleTree(JSON.parse(JSON.stringify(tree)), false); 
-        aliveUntil = blockToEdit.aliveUntil;
+        if (blockToEdit) aliveUntil = blockToEdit.aliveUntil;
       }
 
       var buffer = serialize(block_id, nodes, aliveUntil);
