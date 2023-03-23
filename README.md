@@ -9,7 +9,6 @@ Currently regular nodeos, firehose and SHIP are supported for consuming blocks a
 ```
 git clone https://github.com/eostitan/lightproof-db.git
 cd lightproof-db
-git checkout tiny-db
 npm install
 ```
 
