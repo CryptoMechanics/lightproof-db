@@ -1,7 +1,7 @@
 # lightproof-db
 
 Lightproof-db for antelope stores the block id, number and active nodes for each block. It exposes the data through an http GET server.
-Currently firehose and SHIP are supported for consuming blocks and extracting the data for the lmdb database tables.
+Currently regular nodeos, firehose and SHIP are supported for consuming blocks and extracting the data for the lmdb database tables.
 
 ## Instructions
 
@@ -34,12 +34,15 @@ START_SYNC_HEIGHT=293690288
 # firehose or ship
 HISTORY_PROVIDER=firehose
 
-# Firehose GRPC address and mode (if using firehose)
+# Firehose GRPC address and mode (if HISTORY_PROVIDER is firehose)
 GRPC_ADDRESS=eos.firehose.eosnation.io:9000
 GRPC_INSECURE=false
 
-# SHIP websocket address (if using SHIP)
+# SHIP websocket address (if HISTORY_PROVIDER is SHIP)
 SHIP_WS=ws://localhost:8080
+
+# Nodeos HTTP (if HISTORY_PROVIDER is nodeos)
+NODEOS_HTTP=http://localhost:8888
 
 # EXPERIMENTAL. Automatically prune lightproof-db records that are PRUNING_CUTOFF blocks from last written block to the db
 PRUNING_CUTOFF=0

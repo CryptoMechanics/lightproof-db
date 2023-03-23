@@ -12,13 +12,17 @@ async function main(){
   await pruneDB();
 
   if (historyProvider === 'firehose'){
-    const {  streamFirehose } = require('./firehose');
+    const { streamFirehose } = require('./firehose');
     await streamFirehose(startBlock);  
   }
   else if (historyProvider === 'ship'){
     const SHIP = require('./ship');
     const ship = new SHIP();
     ship.start(process.env.SHIP_WS);
+  }
+  else if (historyProvider === 'nodeos'){
+    const { startNodeos } = require('./nodeos');
+    startNodeos();
   }
   console.log("READY")
 
