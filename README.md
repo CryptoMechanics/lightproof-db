@@ -7,6 +7,7 @@ Currently regular nodeos, firehose and SHIP are supported for consuming blocks a
 
 #### Clone the repo and install dependencies
 ```
+sudo apt install build-essential
 git clone https://github.com/CryptoMechanics/lightproof-db.git
 cd lightproof-db
 npm install
