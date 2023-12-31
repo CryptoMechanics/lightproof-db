@@ -25,7 +25,7 @@ PORT=8285
 
 # Used to get required blocks for bootstapping lightproof-db from a full firehose
 BOOTSTRAP=true
-BOOT_GRPC_ADDRESS=eos.firehose.eosnation.io:9000
+BOOT_GRPC_ADDRESS=eos.firehose.pinax.network:443
 BOOT_GRPC_INSECURE=false
 
 # block to bootstrap until, must be irreversible and HISTORY_PROVIDER must have the blocks after it
@@ -35,7 +35,7 @@ START_SYNC_HEIGHT=293690288
 HISTORY_PROVIDER=firehose
 
 # Firehose GRPC address and mode (if HISTORY_PROVIDER is firehose)
-GRPC_ADDRESS=eos.firehose.eosnation.io:9000
+GRPC_ADDRESS=eos.firehose.pinax.network:443
 GRPC_INSECURE=false
 
 # SHIP websocket address (if HISTORY_PROVIDER is SHIP)
@@ -49,7 +49,7 @@ PRUNING_CUTOFF=0
 
 # FORCE_START_BLOCK=BLOCK_NUMBER  #force indexing to start from a certain block
 # DB_PATH="lightproof-data"
-# FIREHOSE_SERVICE=v2
+FIREHOSE_SERVICE=v2
 ```
 
 
